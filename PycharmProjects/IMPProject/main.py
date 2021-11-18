@@ -3,9 +3,9 @@ import imutils
 import numpy as np
 import keras
 import tensorflow as tf
-from s1_fun import test_fun
+from sudoku_solver import sol
 from skimage.segmentation import clear_border
-
+import easyocr
 class sudoku:
 
     def __init__(self,path):
@@ -101,12 +101,11 @@ class sudoku:
         return warped
 
     def Detect_Image(self,image):
-        #model = keras.models.load_model('digit_model.h5')
+        model = tf.keras.models.load_model('digit_model.h5')
         board = np.zeros((9, 9), dtype="int")
         # a Sudoku puzzle is a 9x9 grid (81 individual cells), so we can
         # infer the location of each cell by dividing the warped image
         # into a 9x9 grid
-        print(image.shape)
         stepX = image.shape[1] // 9
         stepY = image.shape[0] // 9
         # initialize a list to store the (x, y)-coordinates of each cell
@@ -142,11 +141,10 @@ class sudoku:
                 cnts = sorted(cnts, key=cv2.contourArea, reverse=True)
 
                 cv2.drawContours(cut, cnts, -1, (0, 255, 0), 3)
-                cv2.imshow("19BCE2086 extraction", cut)
-                cv2.waitKey(0)
-                cv2.imwrite("/Users/macbook/PycharmProjects/IMPProject/images/{}.png".format(str(js)), cut)
-                print("/Users/macbook/PycharmProjects/IMPProject/images/{}.png".format(str(js)))
                 cut = cv2.resize(cut, (28, 28), interpolation=cv2.INTER_AREA)
+                #cv2.imwrite("/Users/macbook/PycharmProjects/IMPProject/images/{}.png".format(str(js)), cut)
+                print("/Users/macbook/PycharmProjects/IMPProject/images/{}.png".format(str(js)))
+
 
                 cellLocs.append(cut)
                 cut=np.array(cut)
@@ -154,16 +152,81 @@ class sudoku:
                 cut=np.expand_dims(cut,axis=0)
                 #print(cut.shape)
                 print(cv2.contourArea(cnts[0]))
-                if cv2.contourArea(cnts[0])>700:
-                    cv2.imshow("cut",cut.tolist())
-                    #n=str(model.predict(cut).argmax())
+                if cv2.contourArea(cnts[0])>500:
 
-                    image = cv2.putText(image,str("ll"), ((startX+endX)//2, (startY+endY)//2), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255),2)
+                    ans=model.predict(cut).argmax()
+                    ans=str(ans)
+                    print(ans)
+                    image = cv2.putText(image,ans, ((startX+endX)//2, (startY+endY)//2), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255),2)
 
                 js += 1
         print(js)
 
         return image
+    def number_reader(self,image):
+        reader = easyocr.Reader(['en'])
+        result = reader.readtext(image)
+        for i in result:
+            image=cv2.rectangle(image,(i[0][0][0],i[0][0][1]),(i[0][2][0],i[0][2][1]),(255,34,233),2)
+        return image
+    def detect(self,image):
+
+        stepX = image.shape[1] // 9
+        stepY = image.shape[0] // 9
+        # initialize a list to store the (x, y)-coordinates of each cell
+        # location
+        cellLocs = []
+
+        reader = easyocr.Reader(['en'])
+        result=[]
+        sudoku=[[],[],[],[],[],[],[],[],[]]
+
+        for y in range(0, 9):
+            # initialize the current list of cell locations
+            row = []
+            js=0
+            for x in range(0, 9):
+                # compute the starting and ending (x, y)-coordinates of the
+                # current cell
+                startX = x * stepX
+                startY = y * stepY
+                endX = (x + 1) * stepX
+                endY = (y + 1) * stepY
+                image = cv2.rectangle(image, (startX, startY), (endX, endY), (255, 34, 233), 2)
+                cut=image[startX:endX,startY:endY]
+                result=[]
+                try:
+                    result = reader.readtext(cut)
+                    print(result)
+                except:
+                    print("image not loaded correctly")
+                # if j==20:
+                #     cv2.imshow("cut",cut)
+                #     cv2.waitKey(0)
+
+                if result!=[]:
+                    image = cv2.putText(image, result[0][-2], ((startY + endY) // 2,(startX + endX) // 2),cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+                    sudoku[js].append(int(result[0][-2]))
+
+                else:
+                    image = cv2.putText(image,'0', ((startY + endY) // 2, (startX + endX) // 2),cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+                    sudoku[js].append(0)
+
+
+                js+=1
+
+        print(sudoku)
+
+        return image,sudoku
+    def solve(self,sudoku):
+        s=sol()
+
+        s.print_board(sudoku)
+        s.solve(sudoku)
+        print("___________________")
+        s.print_board(sudoku)
+
+
 
 s=sudoku("city_times.jpeg")
 image=s.grayscale()
@@ -175,15 +238,18 @@ puzzlecnt=s.ROIpoints()
 
 image=s.tranformation()
 
-image=cv2.resize(image,(1000,1000),interpolation=cv2.INTER_AREA)
-image=s.Detect_Image(np.array(image))
+image=cv2.resize(image,(900,900),interpolation=cv2.INTER_AREA)
+# image=s.Detect_Image(np.array(image))
 
 # #image=cv2.resize(image,(400,400),interpolation=cv2.INTER_AREA)
 #
 #
 # #image=test_fun(image)
 
-#image=cv2.imread("sudoki1.png")
+#image=cv2.imread("city_times.jpeg")
+#image = cv2.putText(image, i[-2], ((i[0][0][0]+i[0][2][0])//2, (i[0][0][1]+i[0][2][1])//2),cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
 #cv2.drawContours(image,puzzlecnt,0,(255,34,23),5)
-# cv2.imshow("Tranformation of images 19BCE2086",image)
-# cv2.waitKey(0)
+image,sudoku=s.detect(image)
+s.solve(sudoku)
+cv2.imshow("Tranformation of images 19BCE2086",image)
+cv2.waitKey(0)
