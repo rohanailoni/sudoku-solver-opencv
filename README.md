@@ -27,7 +27,14 @@ venv\Scripts\activate
 pip install -r req.txt
 ```
 ### it takes time as tensorflow is a huge file
-
+### run
+```bash
+python main.py
+```
+`or`
+```bash
+python3 main.py
+```
 
 
 
